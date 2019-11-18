@@ -2,32 +2,14 @@
 //
 
 #include "stdafx.h"
-#include "opencv2/opencv.hpp"
-#include "Eigen/Core"
+#include "render.h"
 #include <iostream>
 #include <fstream>
 #include <vector>
 
-struct Camera {
-	Eigen::Matrix3f in_mat, rot;
-	Eigen::Vector3f T;
-
-	Eigen::Vector2f project(Eigen::Vector3f x) {
-		x = rot*x;
-		x = x + T;
-		x = in_mat * x;
-		return Eigen::Vector2f(x(0) / x(2), x(1) / x(2));
-	}
-};
-
-struct Mesh {
-	std::vector<Eigen::Vector3f> pts;
-	std::vector<Eigen::Vector3i> faces;
-}mesh;
-
 std::vector<cv::Mat> imgs;
 std::vector<Camera> cameras;
-
+Mesh mesh;
 
 void read_mesh(std::string file_name) {
 	std::ifstream fin(file_name);
@@ -46,8 +28,8 @@ void read_mesh(std::string file_name) {
 	}
 	for (int i = 1; i <= faces_n; i++) {
 		int x, y, z;
-		fin >> t>>x >> y >> z;
-		//mesh.pts.push_back(Eigen::Vector3i(x, y, z));
+		fin >> t >> x >> y >> z;
+		mesh.faces.push_back(Eigen::Vector3i(x, y, z));
 	}
 }
 
@@ -81,20 +63,39 @@ void read_image(const char* format, int n) {
 
 void reprojection() {
 	for (int i = 0; i < cameras.size(); i++) {
-		cv::Mat show_img;
-		imgs[i].copyTo(show_img);
+		int bais = 0;
+		cv::Mat show_img(imgs[i].rows, imgs[i].cols*3, CV_8UC3, cv::Scalar(0, 0, 0));
+		for (int r = 0; r < imgs[i].rows; r++) {
+			for (int c = 0; c < imgs[i].cols; c++) {
+				show_img.at<cv::Vec3b>(r, c) = imgs[i].at<cv::Vec3b>(r, c);
+			}
+		}
+		bais += imgs[i].cols;
 		std::cout << mesh.pts.size() << std::endl;
-		for (auto pt : mesh.pts) {
+
+
+		cv::Mat out;
+		rend(mesh, cameras[i], out);
+
+		/*for (auto pt : mesh.pts) {
 			auto pt_2d = cameras[i].project(pt);
-			/*std::cout << pt(0) << " " << pt(1) << " " << pt(2) << std::endl;
-			std::cout << cameras[0].in_mat << std::endl;
-			std::cout << cameras[0].rot << std::endl;
-			std::cout << cameras[0].T(0)<<" "<<cameras[0].T(1)<<" "<<cameras[0].T(2) << std::endl;
-			std::cout << pt_2d(0)<<" "<<pt_2d(1) << std::endl;*/
 			cv::circle(show_img, cv::Point(pt_2d(0), pt_2d(1)), 1, cv::Scalar(0, 0, 255));
+		}*/
+		for (int r = 0; r < imgs[i].rows && r < out.rows; r++) {
+			for (int c = 0; c < imgs[i].cols && c < out.cols; c++) {
+				show_img.at<cv::Vec3b>(r, c + bais) = cv::Vec3b(out.at<uchar>(r, c), out.at<uchar>(r, c), out.at<uchar>(r, c));
+			}
+		}
+		bais += imgs[i].cols;
+
+		for (int r = 0; r < imgs[i].rows && r < out.rows; r++) {
+			for (int c = 0; c < imgs[i].cols && c < out.cols; c++) {
+				show_img.at<cv::Vec3b>(r, c+bais) = imgs[i].at<cv::Vec3b>(r, c) / 3 + cv::Vec3b(0, out.at<uchar>(r, c), 0) / 3 * 2;
+			}
 		}
 		cv::imshow("debug", show_img);
-		cv::waitKey();
+		cv::imwrite(cv::format("./%d.png", i), show_img);
+		cv::waitKey(30);
 	}
 }
 
@@ -104,9 +105,9 @@ int main()
 	/*read_camera("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/lybe/calibParams.txt");
 	read_image("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/lybe/lybe_%d_42.png", cameras.size());
 	read_mesh("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/lybe/lybe_42.off");*/
-	read_camera("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/dinoSparseRing/calibParams.txt");
-	read_image("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/dinoSparseRing/dinoSR%04d.png", cameras.size());
-	read_mesh("F:/rzshao/cmvs(4)/cmvs(4)/OfmStereo2/OfmStereo2/dinoSparseRing/mesh.off");
+	read_camera("F:/rzshao/cmvs(4)/dinoRing/dinoRing/calibParams.txt");
+	read_image("F:/rzshao/cmvs(4)/dinoRing/dinoRing/silhouette/dinoR%04d.png", cameras.size());
+	read_mesh("F:/rzshao/cmvs(4)/dinoRing/dinoRing/mesh.off");
 	reprojection();	
 
 
