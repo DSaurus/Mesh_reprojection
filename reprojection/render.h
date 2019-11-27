@@ -25,6 +25,10 @@ struct Camera {
 struct Mesh {
 	std::vector<Eigen::Vector3f> pts;
 	std::vector<Eigen::Vector3i> faces;
+	std::vector<Eigen::Vector3f> normals;
+	std::vector<Eigen::Vector3f> colors;
 };
 
+void get_texture(Mesh mesh, Camera cam, cv::Mat depth, cv::Mat color, std::vector< std::vector<Eigen::Vector3f> >& color_pts);
 void rend(Mesh mesh, Camera cam, cv::Mat &out);
+void rend_color(Mesh mesh, Camera cam, cv::Mat &out);
